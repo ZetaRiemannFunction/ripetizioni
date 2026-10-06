@@ -1,0 +1,29 @@
+{
+  "name": "Availability",
+  "type": "object",
+  "properties": {
+    "giorno_settimana": {
+      "type": "number",
+      "enum": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    "ora_inizio": {
+      "type": "string"
+    },
+    "ora_fine": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "giorno_settimana",
+    "ora_inizio",
+    "ora_fine"
+  ]
+}

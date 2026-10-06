@@ -1,0 +1,30 @@
+{
+  "name": "Location",
+  "type": "object",
+  "properties": {
+    "chiave": {
+      "type": "string",
+      "enum": [
+        "abitazione_1",
+        "online"
+      ]
+    },
+    "nome": {
+      "type": "string"
+    },
+    "indirizzo": {
+      "type": "string"
+    },
+    "link_meet": {
+      "type": "string"
+    },
+    "ordine": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "chiave",
+    "nome"
+  ]
+}

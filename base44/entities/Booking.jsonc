@@ -1,0 +1,92 @@
+{
+  "name": "Booking",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string"
+    },
+    "nome_studente": {
+      "type": "string"
+    },
+    "telefono_studente": {
+      "type": "string"
+    },
+    "materia": {
+      "type": "string",
+      "enum": [
+        "matematica",
+        "fisica"
+      ]
+    },
+    "location": {
+      "type": "string",
+      "enum": [
+        "abitazione_1",
+        "online"
+      ]
+    },
+    "data": {
+      "type": "string",
+      "format": "date"
+    },
+    "ora_inizio": {
+      "type": "string"
+    },
+    "durata": {
+      "type": "number",
+      "default": 1
+    },
+    "tipo_lezione": {
+      "type": "string",
+      "enum": [
+        "individuale",
+        "gruppo"
+      ]
+    },
+    "prezzo": {
+      "type": "number"
+    },
+    "gruppo_id": {
+      "type": "string"
+    },
+    "gruppo_size": {
+      "type": "number",
+      "default": 1
+    },
+    "modalita_pagamento": {
+      "type": "string",
+      "enum": [
+        "anticipato",
+        "volta_per_volta",
+        "pacchetto"
+      ],
+      "default": "volta_per_volta"
+    },
+    "link_meet": {
+      "type": "string"
+    },
+    "package_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "confermata",
+        "annullata"
+      ],
+      "default": "confermata"
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "student_id",
+    "materia",
+    "location",
+    "data",
+    "ora_inizio",
+    "tipo_lezione",
+    "prezzo"
+  ]
+}

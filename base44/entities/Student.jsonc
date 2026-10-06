@@ -1,0 +1,50 @@
+{
+  "name": "Student",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string"
+    },
+    "cognome": {
+      "type": "string"
+    },
+    "telefono": {
+      "type": "string"
+    },
+    "scuola": {
+      "type": "string",
+      "enum": [
+        "media",
+        "superiore"
+      ]
+    },
+    "tipologia": {
+      "type": "string",
+      "enum": [
+        "media",
+        "liceo_scientifico",
+        "liceo_non_scientifico",
+        "tecnico",
+        "professionale"
+      ]
+    },
+    "anno": {
+      "type": "number",
+      "default": 1
+    },
+    "anno_scolastico_registrazione": {
+      "type": "string"
+    },
+    "anno_override": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "nome",
+    "cognome",
+    "telefono",
+    "scuola",
+    "tipologia",
+    "anno"
+  ]
+}

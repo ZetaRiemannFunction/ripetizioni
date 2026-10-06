@@ -1,0 +1,31 @@
+{
+  "name": "Tutor",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string"
+    },
+    "telefono": {
+      "type": "string"
+    },
+    "bio": {
+      "type": "string"
+    },
+    "foto_url": {
+      "type": "string"
+    },
+    "materia": {
+      "type": "string"
+    },
+    "laurea": {
+      "type": "string"
+    },
+    "ordine": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "nome"
+  ]
+}

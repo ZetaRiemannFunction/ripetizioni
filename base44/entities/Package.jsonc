@@ -1,0 +1,48 @@
+{
+  "name": "Package",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string"
+    },
+    "nome_studente": {
+      "type": "string"
+    },
+    "telefono_studente": {
+      "type": "string"
+    },
+    "ore_totali": {
+      "type": "number"
+    },
+    "ore_residuali": {
+      "type": "number"
+    },
+    "sconto_pct": {
+      "type": "number"
+    },
+    "prezzo_ora": {
+      "type": "number"
+    },
+    "prezzo_totale": {
+      "type": "number"
+    },
+    "data_acquisto": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "attivo",
+        "esaurito"
+      ],
+      "default": "attivo"
+    }
+  },
+  "required": [
+    "student_id",
+    "ore_totali",
+    "ore_residuali",
+    "prezzo_totale"
+  ]
+}
