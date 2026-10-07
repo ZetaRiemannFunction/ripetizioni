@@ -3,6 +3,9 @@ import { Phone, User, ArrowRight, LogOut } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { currentSchoolYear, computeCurrentAnno, TIPOLOGIE_LABEL } from "@/lib/tutoring";
 
+// Helper per rimuovere spazi, trattini e caratteri non numerici
+const sanitizePhone = (val) => val.replace(/\D/g, "");
+
 export default function StudentAuth({ onAuth }) {
   const [step, setStep] = useState("phone"); // phone | register | profile
   const [telefono, setTelefono] = useState("");
@@ -17,15 +20,19 @@ export default function StudentAuth({ onAuth }) {
   const [tipologia, setTipologia] = useState("liceo_scientifico");
   const [anno, setAnno] = useState(1);
 
-  async function lookup() {
+  async function lookup(e) {
+    if (e) e.preventDefault();
     setError("");
-    if (!telefono.trim()) {
-      setError("Inserisci il tuo numero di telefono");
+    
+    const phoneClean = sanitizePhone(telefono);
+    if (!phoneClean) {
+      setError("Inserisci un numero di telefono valido");
       return;
     }
+
     setLoading(true);
     try {
-      const res = await base44.entities.Student.filter({ telefono: telefono.trim() }, { limit: 1 });
+      const res = await base44.entities.Student.filter({ telefono: phoneClean }, { limit: 1 });
       if (res.items && res.items.length > 0) {
         setStudent(res.items[0]);
         setStep("profile");
@@ -34,24 +41,28 @@ export default function StudentAuth({ onAuth }) {
         setStep("register");
       }
     } catch (e) {
-      setError("Errore di ricerca. Riprova.");
+      setError("Errore durante la ricerca. Riprova.");
     } finally {
       setLoading(false);
     }
   }
 
-  async function register() {
+  async function register(e) {
+    if (e) e.preventDefault();
     setError("");
-    if (!nome.trim() || !cognome.trim() || !telefono.trim()) {
-      setError("Compila tutti i campi");
+
+    const phoneClean = sanitizePhone(telefono);
+    if (!nome.trim() || !cognome.trim() || !phoneClean) {
+      setError("Compila tutti i campi obbligatori");
       return;
     }
+
     setLoading(true);
     try {
       const created = await base44.entities.Student.create({
         nome: nome.trim(),
         cognome: cognome.trim(),
-        telefono: telefono.trim(),
+        telefono: phoneClean,
         scuola,
         tipologia: scuola === "media" ? "media" : tipologia,
         anno: Number(anno),
@@ -101,7 +112,7 @@ export default function StudentAuth({ onAuth }) {
 
   if (step === "register") {
     return (
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+      <form onSubmit={register} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
         <h3 className="font-heading text-2xl text-foreground">Crea il tuo profilo</h3>
         <p className="mt-1 text-sm text-foreground/60">
           Telefono: {telefono} · lo userai per accedere in futuro
@@ -150,18 +161,18 @@ export default function StudentAuth({ onAuth }) {
         </div>
         {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
         <button
-          onClick={register}
+          type="submit"
           disabled={loading}
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {loading ? "Creazione..." : "Crea profilo e prenota"} <ArrowRight className="h-4 w-4" />
         </button>
-      </div>
+      </form>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+    <form onSubmit={lookup} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
       <h3 className="font-heading text-2xl text-foreground">Accedi o registrati</h3>
       <p className="mt-1 text-sm text-foreground/60">
         Inserisci il tuo numero di telefono per prenotare le lezioni.
@@ -173,9 +184,9 @@ export default function StudentAuth({ onAuth }) {
               <Phone className="h-5 w-5" />
             </span>
             <input
+              type="tel"
               value={telefono}
               onChange={(e) => setTelefono(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && lookup()}
               className={inputCls}
               placeholder="333 1234567"
             />
@@ -184,13 +195,13 @@ export default function StudentAuth({ onAuth }) {
       </div>
       {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
       <button
-        onClick={lookup}
+        type="submit"
         disabled={loading}
         className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
       >
         {loading ? "Ricerca..." : "Continua"} <ArrowRight className="h-4 w-4" />
       </button>
-    </div>
+    </form>
   );
 }
 
