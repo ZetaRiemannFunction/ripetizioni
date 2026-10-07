@@ -8,7 +8,7 @@ import StudentList from "@/components/admin/StudentList";
 import SettingsManager from "@/components/admin/SettingsManager";
 
 export default function Admin() {
-  const [pin, setPin] = useState("531002");
+  const [pin, setPin] = useState("");
   const [verified, setVerified] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
