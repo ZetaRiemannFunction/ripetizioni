@@ -27,7 +27,7 @@ export default function AdminCalendar({ pin }) {
     const end = weekDates[6].toISOString().split("T")[0];
     try {
       const [bRes, lRes] = await Promise.all([
-        base44.entities.Booking.filter({ data: { $gte: start, $lte: end }, status: "confermata" }, { sort: "data", limit: 200, fields: ["data", "ora_inizio", "materia", "location", "tipo_lezione", "prezzo", "nome_studente", "telefono_studente", "student_id"] }),
+        base44.entities.Booking.filter({ data: { $gte: start, $lte: end }, status: "confermata" }, { sort: "data", limit: 200, fields: ["data", "ora_inizio", "materia", "location", "tipo_lezione", "prezzo", "nome_studente", "telefono_studente", "student_id", "tutor_nome"] }),
         base44.entities.Location.filter({}, { limit: 10 }),
       ]);
       setBookings(bRes.items || []);
@@ -104,6 +104,7 @@ export default function AdminCalendar({ pin }) {
                           {b.nome_studente}
                         </span>
                         <span className="text-foreground/60">{b.materia === "matematica" ? "Matematica" : "Fisica"}</span>
+                        <span className="text-foreground/60">Tutor: {b.tutor_nome || "—"}</span>
                         <span className="flex items-center gap-1.5 text-foreground/60">
                           <MapPin className="h-3.5 w-3.5" /> {locations[b.location] || b.location}
                         </span>

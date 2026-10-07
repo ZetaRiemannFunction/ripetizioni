@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Phone, MapPin, Instagram } from "lucide-react";
-import GammaMark from "@/components/GammaMark";
+import ZetaMark from "@/components/ZetaMark";
 import { base44 } from "@/api/base44Client";
 
 export default function SiteFooter() {
@@ -30,12 +30,12 @@ export default function SiteFooter() {
           <div>
             <div className="flex items-center gap-2">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                <GammaMark className="h-5 w-5" />
+                <ZetaMark className="h-5 w-5" />
               </span>
               <span className="font-heading text-xl">Ripetizioni<span className="text-primary">.</span></span>
             </div>
             <p className="mt-4 text-sm leading-relaxed text-parchment/70">
-              Matematica e Fisica con tutors laureati all'Università di Pisa e a Reggio Emilia.
+              Matematica e Fisica con tutor laureati all'Università di Pisa.
               Lezioni individuali e di gruppo, in presenza.
             </p>
           </div>

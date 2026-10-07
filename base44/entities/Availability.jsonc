@@ -2,6 +2,9 @@
   "name": "Availability",
   "type": "object",
   "properties": {
+    "tutor_nome": {
+      "type": "string"
+    },
     "giorno_settimana": {
       "type": "number",
       "enum": [
@@ -22,6 +25,7 @@
     }
   },
   "required": [
+    "tutor_nome",
     "giorno_settimana",
     "ora_inizio",
     "ora_fine"

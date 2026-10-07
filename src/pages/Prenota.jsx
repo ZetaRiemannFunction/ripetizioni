@@ -87,7 +87,7 @@ export default function Prenota() {
                       <div key={b.id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
                         <div className="flex items-center justify-between">
                           <p className="font-medium text-foreground">
-                            {b.materia === "matematica" ? "Matematica" : "Fisica"} · {b.ora_inizio}
+                            {b.materia === "matematica" ? "Matematica" : "Fisica"} · {b.ora_inizio}{b.tutor_nome ? ` · ${b.tutor_nome}` : ""}
                           </p>
                           <p className="text-sm font-medium text-foreground">
                             {b.modalita_pagamento === "pacchetto" ? "Pacchetto" : b.modalita_pagamento === "anticipato" ? "Anticipato" : "Volta per volta"}

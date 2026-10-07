@@ -6,7 +6,9 @@ import { GIORNI } from "@/lib/tutoring";
 const DAYS = [1, 2, 3, 4, 5, 6, 0]; // lun→dom
 
 export default function AvailabilityEditor({ pin }) {
-  const [ranges, setRanges] = useState({}); // {giorno: [{ora_inizio, ora_fine}]}
+  const [tutors, setTutors] = useState([]);
+  const [selectedTutor, setSelectedTutor] = useState("");
+  const [ranges, setRanges] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -14,20 +16,36 @@ export default function AvailabilityEditor({ pin }) {
   useEffect(() => {
     (async () => {
       try {
-        const res = await base44.entities.Availability.filter({}, { limit: 100 });
+        const res = await base44.entities.Tutor.filter({}, { sort: "ordine", limit: 10, fields: ["nome", "ordine"] });
+        const items = res.items || [];
+        setTutors(items);
+        if (items.length > 0) setSelectedTutor(items[0].nome);
+      } catch (e) {
+        /* ignore */
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedTutor) return;
+    setLoading(true);
+    (async () => {
+      try {
+        const res = await base44.entities.Availability.filter({ tutor_nome: selectedTutor }, { limit: 100 });
         const map = {};
         (res.items || []).forEach((a) => {
           if (!map[a.giorno_settimana]) map[a.giorno_settimana] = [];
-          map[a.giorno_settimana].push({ ora_inizio: a.ora_inizio, ora_fine: a.ora_fine, id: a.id });
+          map[a.giorno_settimana].push({ ora_inizio: a.ora_inizio, ora_fine: a.ora_fine });
         });
         setRanges(map);
       } catch (e) {
-        /* ignore */
+        setRanges({});
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [selectedTutor]);
 
   function addRange(giorno) {
     setRanges((prev) => ({
@@ -62,7 +80,7 @@ export default function AvailabilityEditor({ pin }) {
       });
     });
     try {
-      await base44.functions.invoke("saveAvailability", { pin, availability: items });
+      await base44.functions.invoke("saveAvailability", { pin, tutor_nome: selectedTutor, availability: items });
       setMsg("Disponibilità salvata ✓");
     } catch (e) {
       setMsg("Errore nel salvataggio");
@@ -71,19 +89,40 @@ export default function AvailabilityEditor({ pin }) {
     }
   }
 
-  if (loading) return <p className="text-foreground/50">Caricamento...</p>;
+  if (loading && !selectedTutor) return <p className="text-foreground/50">Caricamento...</p>;
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-heading text-3xl text-foreground">Disponibilità settimanale</h2>
-          <p className="mt-1 text-sm text-foreground/60">Imposta gli orari in cui sei disponibile a fare lezione. Gli studenti vedranno gli slot liberi.</p>
+          <p className="mt-1 text-sm text-foreground/60">Imposta gli orari di ciascun tutor. Gli studenti vedono tutti gli slot in cui almeno un tutor è libero.</p>
         </div>
-        <button onClick={save} disabled={saving} className="flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50">
-          <Save className="h-4 w-4" /> {saving ? "Salvataggio..." : "Salva"}
-        </button>
+        {tutors.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {tutors.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setSelectedTutor(t.nome)}
+                className={selectedTutor === t.nome
+                  ? "rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+                  : "rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground/70 hover:border-primary"}
+              >
+                {t.nome}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+
+      {selectedTutor && (
+        <div className="mb-4 flex items-center justify-between">
+          <p className="text-sm text-foreground/60">Stai modificando: <span className="font-medium text-foreground">{selectedTutor}</span></p>
+          <button onClick={save} disabled={saving} className="flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50">
+            <Save className="h-4 w-4" /> {saving ? "Salvataggio..." : "Salva"}
+          </button>
+        </div>
+      )}
 
       {msg && <p className="mb-4 text-sm font-medium text-success">{msg}</p>}
 

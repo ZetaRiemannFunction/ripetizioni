@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { MapPin, Clock, Users, User, Calendar, Check, ArrowRight, Home, Video, Wallet, Package as PackageIcon } from "lucide-react";
 import { base44 } from "@/api/base44Client";
-import { generateSlots, computePrice, formatDateIt, GIORNI } from "@/lib/tutoring";
+import { computePrice, formatDateIt, GIORNI } from "@/lib/tutoring";
 
 export default function BookingForm({ student, packages = [], onPackagesChange }) {
+  const [tutors, setTutors] = useState([]);
   const [locations, setLocations] = useState([]);
   const [availability, setAvailability] = useState([]);
   const [materia, setMateria] = useState("matematica");
@@ -34,13 +35,17 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
     return arr;
   }, []);
 
+  const dow = selectedDate ? new Date(selectedDate + "T00:00:00").getDay() : null;
+
   useEffect(() => {
     (async () => {
       try {
-        const [loc, av] = await Promise.all([
+        const [tu, loc, av] = await Promise.all([
+          base44.entities.Tutor.filter({}, { sort: "ordine", limit: 10, fields: ["nome", "ordine", "link_meet"] }),
           base44.entities.Location.filter({}, { sort: "ordine", limit: 10 }),
-          base44.entities.Availability.filter({}, { limit: 50 }),
+          base44.entities.Availability.filter({}, { limit: 200 }),
         ]);
+        setTutors(tu.items || []);
         setLocations(loc.items || []);
         setAvailability(av.items || []);
         if ((loc.items || []).length > 0) setLocation(loc.items[0].chiave);
@@ -58,7 +63,7 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
       try {
         const res = await base44.entities.Booking.filter(
           { data: selectedDate, status: "confermata" },
-          { limit: 100 }
+          { limit: 100, fields: ["ora_inizio", "durata", "tipo_lezione", "tutor_nome"] }
         );
         setBookings(res.items || []);
       } catch (e) {
@@ -69,56 +74,99 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
     })();
   }, [selectedDate]);
 
+  const availabilityByTutor = useMemo(() => {
+    const map = {};
+    availability.forEach((a) => {
+      if (!map[a.tutor_nome]) map[a.tutor_nome] = [];
+      map[a.tutor_nome].push(a);
+    });
+    return map;
+  }, [availability]);
+
   const daySlots = useMemo(() => {
     if (!selectedDate) return [];
-    const dow = new Date(selectedDate + "T00:00:00").getDay();
-    const dayAvail = availability.filter((a) => a.giorno_settimana === dow);
-    let slots = [];
-    dayAvail.forEach((a) => {
-      slots = slots.concat(generateSlots(a.ora_inizio, a.ora_fine));
+    const d = new Date(selectedDate + "T00:00:00").getDay();
+    const hours = new Set();
+    availability.forEach((a) => {
+      if (a.giorno_settimana !== d) return;
+      const s = parseInt((a.ora_inizio || "").split(":")[0], 10);
+      const e = parseInt((a.ora_fine || "").split(":")[0], 10);
+      for (let h = s; h < e; h++) hours.add(h);
     });
-    return slots;
+    return [...hours].sort((a, b) => a - b).map((h) => ({ inizio: String(h).padStart(2, "0") + ":00", hour: h }));
   }, [selectedDate, availability]);
 
-  function overlaps(b, slot) {
+  function overlapsHour(b, hour) {
     const bStart = parseInt((b.ora_inizio || "").split(":")[0], 10);
     const bEnd = bStart + (b.durata || 1);
-    const sStart = parseInt(slot.inizio.split(":")[0], 10);
-    const sEnd = sStart + 1;
-    return bStart < sEnd && sStart < bEnd;
+    return bStart < hour + 1 && hour < bEnd;
   }
 
-  function slotStatus(slot) {
-    const atSlot = bookings.filter((b) => overlaps(b, slot));
-    const hasIndividual = atSlot.some((b) => b.tipo_lezione === "individuale");
-    const groupCount = atSlot.filter((b) => b.tipo_lezione === "gruppo").length;
-    if (hasIndividual) return { state: "full", label: "Occupato" };
-    if (groupCount >= 3) return { state: "full", label: "Completo" };
-    if (groupCount > 0) return { state: "group", label: `Gruppo ${groupCount}/3`, remaining: 3 - groupCount };
-    return { state: "free", label: "Libero" };
+  function tutorCoversHour(tutorNome, day, hour) {
+    const blocks = (availabilityByTutor[tutorNome] || []).filter((a) => a.giorno_settimana === day);
+    return blocks.some((b) => {
+      const s = parseInt((b.ora_inizio || "").split(":")[0], 10);
+      const e = parseInt((b.ora_fine || "").split(":")[0], 10);
+      return hour >= s && hour + 1 <= e;
+    });
   }
 
-  function canSelectSlot(slot) {
-    const st = slotStatus(slot);
-    if (st.state === "full") return false;
-    if (st.state === "group" && tipoLezione === "individuale") return false;
-    return true;
+  function tutorStateAtHour(tutorNome, day, hour) {
+    if (!tutorCoversHour(tutorNome, day, hour)) return "off";
+    const at = bookings.filter((b) => b.tutor_nome === tutorNome && overlapsHour(b, hour));
+    const hasInd = at.some((b) => b.tipo_lezione === "individuale");
+    const grp = at.filter((b) => b.tipo_lezione === "gruppo").length;
+    if (hasInd) return "busy";
+    if (grp >= 3) return "busy";
+    if (grp > 0) return "group";
+    return "free";
   }
 
-  function maxBookableFrom(slot) {
-    const idx = daySlots.findIndex((s) => s.inizio === slot.inizio);
-    if (idx < 0) return 1;
-    if (!canSelectSlot(slot)) return 0;
-    let count = 1;
-    for (let i = idx + 1; i < daySlots.length && count < 3; i++) {
-      const nst = slotStatus(daySlots[i]);
-      if (nst.state === "free") count++;
-      else break;
+  function slotStatus(hour) {
+    const states = tutors.map((t) => tutorStateAtHour(t.nome, dow, hour));
+    if (states.some((s) => s === "free")) return { state: "free", label: "libero" };
+    if (states.some((s) => s === "group")) return { state: "group", label: "gruppo" };
+    return { state: "full", label: "occupato" };
+  }
+
+  function canSelect(hour, tipo) {
+    const states = tutors.map((t) => tutorStateAtHour(t.nome, dow, hour));
+    if (tipo === "individuale") return states.some((s) => s === "free");
+    return states.some((s) => s === "free" || s === "group");
+  }
+
+  function maxBookable(startIdx, tipo) {
+    const hours = daySlots.map((s) => s.hour);
+    if (!canSelect(hours[startIdx], tipo)) return 0;
+    let max = 1;
+    for (let n = 2; n <= 3 && startIdx + n <= hours.length; n++) {
+      const ok = tutors.some((t) => {
+        for (let k = 0; k < n; k++) {
+          if (tutorStateAtHour(t.nome, dow, hours[startIdx + k]) !== "free") return false;
+        }
+        return true;
+      });
+      if (ok) max = n; else break;
     }
-    return count;
+    return max;
   }
 
-  // pacchetto => solo individuale
+  function assignTutor(startIdx, tipo, n) {
+    const hours = daySlots.map((s) => s.hour);
+    const sorted = [...tutors].sort((a, b) => (a.ordine || 0) - (b.ordine || 0));
+    if (n === 1 && tipo === "gruppo") {
+      const free = sorted.find((t) => tutorStateAtHour(t.nome, dow, hours[startIdx]) === "free");
+      if (free) return free;
+      return sorted.find((t) => tutorStateAtHour(t.nome, dow, hours[startIdx]) === "group");
+    }
+    return sorted.find((t) => {
+      for (let k = 0; k < n; k++) {
+        if (tutorStateAtHour(t.nome, dow, hours[startIdx + k]) !== "free") return false;
+      }
+      return true;
+    });
+  }
+
   useEffect(() => {
     if (usingPackage) setTipoLezione("individuale");
   }, [usingPackage]);
@@ -127,10 +175,12 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
 
   const maxDurata = useMemo(() => {
     if (!selectedSlot) return 1;
-    let m = maxBookableFrom(daySlots.find((s) => s.inizio === selectedSlot) || { inizio: selectedSlot });
+    const idx = daySlots.findIndex((s) => s.inizio === selectedSlot);
+    if (idx < 0) return 1;
+    let m = maxBookable(idx, tipoLezione);
     if (usingPackage) m = Math.min(m, bestPackage.ore_residuali);
     return Math.max(1, Math.min(3, m));
-  }, [selectedSlot, bookings, availability, usingPackage, bestPackage, daySlots]);
+  }, [selectedSlot, daySlots, bookings, tutors, availability, tipoLezione, usingPackage, bestPackage]);
 
   useEffect(() => {
     if (durata > maxDurata) setDurata(maxDurata);
@@ -150,6 +200,13 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
     }
     setSubmitting(true);
     try {
+      const idx = daySlots.findIndex((s) => s.inizio === selectedSlot);
+      const assigned = assignTutor(idx, tipoLezione, durata);
+      if (!assigned) {
+        setError("Nessun tutor disponibile per questo orario");
+        setSubmitting(false);
+        return;
+      }
       const loc = locations.find((l) => l.chiave === location);
       const isOnline = location === "online";
       const payload = {
@@ -166,7 +223,8 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
         gruppo_size: 1,
         status: "confermata",
         modalita_pagamento: modalitaPagamento,
-        link_meet: isOnline ? (loc?.link_meet || "") : "",
+        tutor_nome: assigned.nome,
+        link_meet: isOnline ? (assigned.link_meet || "") : "",
         package_id: usingPackage ? bestPackage.id : "",
       };
       const booking = await base44.entities.Booking.create(payload);
@@ -183,7 +241,8 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
         materia,
         location: loc?.nome || location,
         isOnline,
-        linkMeet: loc?.link_meet || "",
+        linkMeet: assigned.link_meet || "",
+        tutorNome: assigned.nome,
         data: selectedDate,
         ora: selectedSlot,
         durata,
@@ -193,7 +252,7 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
         residual: residualAfter,
         modalita: modalitaPagamento,
       });
-      setBookings((prev) => [...prev, { ...booking, durata }]);
+      setBookings((prev) => [...prev, { ...booking, durata, tutor_nome: assigned.nome, tipo_lezione: tipoLezione }]);
       setSelectedSlot("");
       setDurata(1);
     } catch (e) {
@@ -215,6 +274,7 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
           {success.materia === "matematica" ? "Matematica" : "Fisica"} · {success.tipo === "individuale" ? "Lezione individuale" : "Lezione di gruppo"} · {success.durata} {success.durata === 1 ? "ora" : "ore"}
         </p>
         <div className="mx-auto mt-5 max-w-sm rounded-xl border border-border bg-card p-4 text-left text-sm">
+          <Row icon={<User className="h-4 w-4" />} label="Tutor" value={success.tutorNome} />
           <Row icon={<MapPin className="h-4 w-4" />} label="Sede" value={success.location} />
           <Row icon={<Calendar className="h-4 w-4" />} label="Giorno" value={formatDateIt(success.data)} />
           <Row icon={<Clock className="h-4 w-4" />} label="Orario" value={`${success.ora} – ${String(endHour).padStart(2, "0")}:00`} />
@@ -232,14 +292,14 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
         {success.isOnline && (
           <div className="mx-auto mt-4 max-w-sm rounded-xl border border-primary/30 bg-primary/5 p-4 text-left">
             <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <Video className="h-4 w-4 text-primary" /> Aula virtuale
+              <Video className="h-4 w-4 text-primary" /> Aula virtuale di {success.tutorNome}
             </p>
             {success.linkMeet ? (
               <a href={success.linkMeet} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">
                 Apri l'aula <ArrowRight className="h-4 w-4" />
               </a>
             ) : (
-              <p className="mt-1 text-xs text-foreground/60">Ti invieremo il link dell'aula virtuale prima della lezione.</p>
+              <p className="mt-1 text-xs text-foreground/60">Il tutor ti invierà il link dell'aula virtuale prima della lezione.</p>
             )}
           </div>
         )}
@@ -255,7 +315,6 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
 
   return (
     <div className="space-y-6">
-      {/* Materia */}
       <Section title="Materia" icon={<Calendar className="h-4 w-4" />}>
         <div className="flex gap-2">
           {["matematica", "fisica"].map((m) => (
@@ -266,7 +325,6 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
         </div>
       </Section>
 
-      {/* Sede */}
       <Section title="Sede della lezione" icon={<Home className="h-4 w-4" />}>
         {locations.length === 0 ? (
           <p className="text-sm text-foreground/50">Nessuna sede configurata. Contattaci per prenotare.</p>
@@ -286,7 +344,7 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
                     {isOnline ? <Video className="h-4 w-4 text-primary" /> : <MapPin className="h-4 w-4 text-primary" />} {l.nome}
                   </span>
                   {isOnline
-                    ? <p className="mt-1 text-sm text-foreground/60">Lezione online · stesso costo · aula virtuale (Meet)</p>
+                    ? <p className="mt-1 text-sm text-foreground/60">Lezione online · stesso costo · aula virtuale (Meet) del tutor</p>
                     : (l.indirizzo && <p className="mt-1 text-sm text-foreground/60">{l.indirizzo}</p>)}
                 </button>
               );
@@ -295,7 +353,6 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
         )}
       </Section>
 
-      {/* Data */}
       <Section title="Giorno" icon={<Calendar className="h-4 w-4" />}>
         <div className="flex gap-2 overflow-x-auto pb-2">
           {days.map((d) => {
@@ -318,7 +375,6 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
         </div>
       </Section>
 
-      {/* Slot */}
       {selectedDate && (
         <Section title="Orario disponibile" icon={<Clock className="h-4 w-4" />}>
           {loading ? (
@@ -329,8 +385,8 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
             <>
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
                 {daySlots.map((slot) => {
-                  const st = slotStatus(slot);
-                  const selectable = canSelectSlot(slot);
+                  const st = slotStatus(slot.hour);
+                  const selectable = canSelect(slot.hour, tipoLezione);
                   const active = selectedSlot === slot.inizio;
                   return (
                     <button
@@ -345,23 +401,20 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
                     >
                       <span className="block text-sm font-semibold">{slot.inizio}</span>
                       <span className={active ? "block text-[10px] opacity-90" : "block text-[10px] text-foreground/50"}>
-                        {st.state === "free" ? "libero" : st.state === "group" ? `${st.remaining} posti` : "occupato"}
+                        {st.label}
                       </span>
                     </button>
                   );
                 })}
               </div>
-              {daySlots.length > 0 && (
-                <p className="mt-3 text-xs text-foreground/50">
-                  Slot "libero" = disponibile per individuale o gruppo · "N posti" = gruppo con posti rimanenti
-                </p>
-              )}
+              <p className="mt-3 text-xs text-foreground/50">
+                Vedi tutti gli slot in cui almeno un tutor è libero. Il tutor ti viene assegnato automaticamente. "libero" = individuale o gruppo · "gruppo" = solo gruppo (posti rimanenti)
+              </p>
             </>
           )}
         </Section>
       )}
 
-      {/* Tipo lezione */}
       {selectedSlot && (
         <Section title="Tipo di lezione" icon={<Users className="h-4 w-4" />}>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -392,7 +445,6 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
         </Section>
       )}
 
-      {/* Durata */}
       {selectedSlot && (
         <Section title="Quante ore" icon={<Clock className="h-4 w-4" />}>
           <div className="flex gap-2">
@@ -414,11 +466,10 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
               );
             })}
           </div>
-          {maxDurata < 3 && <p className="mt-2 text-xs text-foreground/50">Massimo {maxDurata} {maxDurata === 1 ? "ora" : "ore"} consecutive disponibili per questo orario.</p>}
+          {maxDurata < 3 && <p className="mt-2 text-xs text-foreground/50">Massimo {maxDurata} {maxDurata === 1 ? "ora" : "ore"} consecutive con lo stesso tutor disponibile.</p>}
         </Section>
       )}
 
-      {/* Pagamento */}
       {selectedSlot && (
         <Section title="Pagamento" icon={<Wallet className="h-4 w-4" />}>
           <div className="flex flex-wrap gap-2">
@@ -426,8 +477,7 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
             <Chip active={modalitaPagamento === "volta_per_volta"} onClick={() => setModalitaPagamento("volta_per_volta")}>Volta per volta</Chip>
             {bestPackage && (
               <Chip active={modalitaPagamento === "pacchetto"} onClick={() => setModalitaPagamento("pacchetto")}>
-                <span className="inline-flex items-center gap-1.5"><PackageIcon className="h-3.5 w-3.5" /> Pacchetto ({bestPackage.ore_residuali} ore)
-              </span>
+                <span className="inline-flex items-center gap-1.5"><PackageIcon className="h-3.5 w-3.5" /> Pacchetto ({bestPackage.ore_residuali} ore)</span>
               </Chip>
             )}
           </div>
@@ -439,7 +489,6 @@ export default function BookingForm({ student, packages = [], onPackagesChange }
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      {/* Riepilogo + conferma */}
       {selectedSlot && (
         <div className="sticky bottom-4 rounded-2xl border border-border bg-card p-5 shadow-lg">
           <div className="flex flex-wrap items-center justify-between gap-3">

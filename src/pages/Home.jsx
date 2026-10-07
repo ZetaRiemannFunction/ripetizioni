@@ -35,8 +35,8 @@ export default function Home() {
               Matematica e Fisica, <span className="text-primary italic">finalmente chiare</span>.
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-foreground/70">
-              Siamo tre studenti universitari laureati all'Università di Pisa e a Reggio Emilia,
-              impegnati nelle rispettive magistrali. Ti aiutiamo a capire, non solo a memorizzare.
+              Siamo due studenti universitari laureati all'Università di Pisa,
+               impegnati nelle rispettive magistrali. Ti aiutiamo a capire, non solo a memorizzare.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
@@ -79,7 +79,7 @@ export default function Home() {
             <h2 className="font-heading text-4xl text-foreground sm:text-5xl">La nostra storia</h2>
             <div className="mt-6 space-y-4 text-lg leading-relaxed text-foreground/70">
               <p>
-                Siamo tre amici che hanno scelto di studiare materie scientifiche e ora vogliono
+                Siamo due amici che hanno scelto di studiare materie scientifiche e ora vogliono
                 mettere la loro passione al servizio di chi ha bisogno di una mano.
               </p>
               <p>
@@ -110,7 +110,7 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
           <h2 className="font-heading text-4xl text-foreground sm:text-5xl">I nostri tutor</h2>
           <p className="mt-3 max-w-xl text-foreground/70">
-            Tre studenti, tre percorsi, una sola missione: aiutarti a raggiungere i tuoi obiettivi.
+            Due studenti, tre percorsi, una sola missione: aiutarti a raggiungere i tuoi obiettivi.
           </p>
           <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {tutors.map((t) => (

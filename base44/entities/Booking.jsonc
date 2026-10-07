@@ -25,6 +25,9 @@
         "online"
       ]
     },
+    "tutor_nome": {
+      "type": "string"
+    },
     "data": {
       "type": "string",
       "format": "date"

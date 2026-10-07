@@ -7,9 +7,14 @@ export default async function (req: Request): Promise<Response> {
     const pin = secrets.get("ADMIN_PIN");
     if (!pin || body.pin !== pin) return Response.json({ error: "Non autorizzato" }, { status: 401 });
     const base44 = createClientFromRequest(req);
-    // Sostituisce tutta la disponibilità settimanale
-    await base44.asServiceRole.entities.Availability.deleteMany({});
-    const items = Array.isArray(body.availability) ? body.availability : [];
+    const tutorNome = body.tutor_nome;
+    if (!tutorNome) return Response.json({ error: "Tutor mancante" }, { status: 400 });
+    // Sostituisce la disponibilità del singolo tutor
+    await base44.asServiceRole.entities.Availability.deleteMany({ tutor_nome: tutorNome });
+    const items = (Array.isArray(body.availability) ? body.availability : []).map((a) => ({
+      ...a,
+      tutor_nome: tutorNome,
+    }));
     if (items.length > 0) {
       await base44.asServiceRole.entities.Availability.bulkCreate(items);
     }

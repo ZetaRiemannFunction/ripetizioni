@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
-import GammaMark from "@/components/GammaMark";
+import ZetaMark from "@/components/ZetaMark";
 import { cn } from "@/lib/utils";
 
 export default function SiteNavbar() {
@@ -19,7 +19,7 @@ export default function SiteNavbar() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link to="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <GammaMark className="h-5 w-5" />
+            <ZetaMark className="h-5 w-5" />
           </span>
           <span className="font-heading text-xl leading-none text-foreground">
             Ripetizioni<span className="text-primary">.</span>
